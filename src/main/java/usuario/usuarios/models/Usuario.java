@@ -1,7 +1,6 @@
 package usuario.usuarios.models;
 
 import java.time.LocalDateTime;
-
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -37,7 +36,7 @@ public class Usuario {
     @Enumerated(EnumType.STRING)
     private Rol rol;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "perfil_id")
     private Perfil perfil;
 
@@ -45,6 +44,7 @@ public class Usuario {
     private Direccion direccion;
 
     private String telefono;
+    private Long cursoId;
 
     private LocalDateTime fechaRegistro;
     private LocalDateTime ultimaActualizacion;

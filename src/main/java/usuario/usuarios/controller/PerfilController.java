@@ -1,22 +1,18 @@
 package usuario.usuarios.controller;
 
-import java.util.List;
-
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
 
 import usuario.usuarios.models.Perfil;
 import usuario.usuarios.service.PerfilService;
 import usuario.usuarios.dto.PerfilDTO;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/perfiles")
@@ -29,7 +25,7 @@ public class PerfilController {
     }
 
     @PostMapping
-    public ResponseEntity<Perfil> crearPerfil(@RequestBody PerfilDTO perfilDTO) {
+    public ResponseEntity<Perfil> crearPerfil(@Valid @RequestBody PerfilDTO perfilDTO) {
         return ResponseEntity.ok(perfilService.guardarPerfil(convertirDTOaEntidad(perfilDTO)));
     }
 
@@ -47,17 +43,20 @@ public class PerfilController {
 
     @GetMapping("/buscar")
     public ResponseEntity<Perfil> obtenerPerfilPorNombre(@RequestParam String nombre) {
+        if (nombre == null || nombre.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         return perfilService.obtenerPerfilPorNombre(nombre)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Perfil> actualizarPerfil(@PathVariable Long id, @RequestBody PerfilDTO perfilDTO) {
+    public ResponseEntity<Perfil> actualizarPerfil(@PathVariable Long id, @Valid @RequestBody PerfilDTO perfilDTO) {
         try {
             Perfil perfil = convertirDTOaEntidad(perfilDTO);
             return ResponseEntity.ok(perfilService.actualizarPerfil(id, perfil));
-        } catch (IllegalArgumentException e) { // Cambiado _ por e
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
     }
@@ -66,10 +65,19 @@ public class PerfilController {
     public ResponseEntity<Void> eliminarPerfil(@PathVariable Long id) {
         try {
             perfilService.eliminarPerfil(id);
-            return ResponseEntity.noContent().build(); // Cambiado a noContent para éxito
+            return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+        return ResponseEntity.badRequest().body(errors);
     }
 
     private Perfil convertirDTOaEntidad(PerfilDTO dto) {

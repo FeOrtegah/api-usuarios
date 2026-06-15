@@ -1,23 +1,20 @@
 package usuario.usuarios.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
 
 import usuario.usuarios.dto.UsuarioDTO;
+import usuario.usuarios.models.Credenciales;
 import usuario.usuarios.models.Direccion;
 import usuario.usuarios.models.Usuario;
-import usuario.usuarios.models.Credenciales;
 import usuario.usuarios.service.UsuarioService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
@@ -30,7 +27,7 @@ public class UsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<Usuario> crearUsuario(@RequestBody UsuarioDTO usuarioDTO) {
+    public ResponseEntity<Usuario> crearUsuario(@Valid @RequestBody UsuarioDTO usuarioDTO) {
         return ResponseEntity.ok(usuarioService.guardarUsuario(convertirDTOaEntidad(usuarioDTO)));
     }
 
@@ -48,13 +45,16 @@ public class UsuarioController {
 
     @GetMapping("/buscar")
     public ResponseEntity<Usuario> buscarPorUsername(@RequestParam String username) {
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         return usuarioService.obtenerPorUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Usuario> actualizarUsuario(@PathVariable Long id, @RequestBody UsuarioDTO usuarioDTO) {
+    public ResponseEntity<Usuario> actualizarUsuario(@PathVariable Long id, @Valid @RequestBody UsuarioDTO usuarioDTO) {
         try {
             Usuario usuario = convertirDTOaEntidad(usuarioDTO);
             return ResponseEntity.ok(usuarioService.actualizarUsuario(id, usuario));
@@ -73,6 +73,16 @@ public class UsuarioController {
         }
     }
 
+    // Manejo global de errores de validación — devuelve 400 con lista de errores
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+        return ResponseEntity.badRequest().body(errors);
+    }
+
     private Usuario convertirDTOaEntidad(UsuarioDTO dto) {
         Usuario usuario = new Usuario();
         usuario.setCredenciales(new Credenciales(dto.getUsername(), dto.getPassword()));
@@ -80,7 +90,9 @@ public class UsuarioController {
         usuario.setApellido(dto.getApellido());
         usuario.setEmail(dto.getEmail());
         usuario.setRol(dto.getRol());
-        usuario.setDireccion(new Direccion(dto.getCalle(), dto.getNumero(), dto.getCiudad(), dto.getRegion(), dto.getPais(), dto.getCodigoPostal()));
+        usuario.setDireccion(new Direccion(
+                dto.getCalle(), dto.getNumero(), dto.getCiudad(),
+                dto.getRegion(), dto.getPais(), dto.getCodigoPostal()));
         usuario.setTelefono(dto.getTelefono());
         return usuario;
     }
